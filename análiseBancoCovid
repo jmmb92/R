@@ -1,0 +1,86 @@
+# Título: 
+# Descrição: Verificação do banco de dados da API Campanha Nacional de  Vacinação da Covid-19 (dados
+# Replicação de um trabalho que eu realizei.
+# Observação: 
+
+# Verifiquei variáveis pra ver a duplicidade:
+#  - PacienteNome,
+#  - Idade (data de nascimento),
+#  - município (codigo e tem descrição do município)
+#  - verifiquei por dose também. 
+# pode ter acontecido duplicidade por causa do tratamento dos dados 
+
+
+# Para explorar os dados (incluir porcentagem)
+# número total doses aplicadas
+#  por tipo da dose
+#  por imunobiológico
+#  por município
+#  sexo
+
+# pacotes úteis:
+# gtsummary
+
+# funções que podem ser úteis para isso
+# count()
+# get_dupes()
+# distintic()
+# help()
+
+# Pacotes -----------------------------------------------------------------
+library(dplyr)
+library(gtsummary)
+library(janitor)
+library(skimr)
+require(pacman); p_load(janitor, readxl, tidyverse)
+
+# Importar ----------------------------------------------------------------
+base <- vroom::vroom(r'(\\****)')
+
+#  A api pode ser vista aqui também.
+# https://covid19-brazil-api.vercel.app
+
+# Arrumar -----------------------------------------------------------------
+
+# Visualização dos dados --------------------------------------------------------------
+##### Verificação da contagem dos tipos de Vacina de COVID-19 que foram aplicadas
+contagemVacina <- base |> count(VacinaNome)
+
+##### verifico a repetição de pacientes a partir nome do paciente, 
+##### idade, municipio, descrição da dose da vacina e data de aplicação da mesma
+repeticaoPaciente <- base |> get_dupes(PacienteNome,PacienteIdade,
+                                       PacienteMunicipio,VacinaDescricaoDose,VacinaDataAplicacao)
+
+# vários pacientes possuem repetições das doses que tomaram. (a dosagem pode repetir em até 5 vezes, na mesma data)
+
+##### Municipios
+contagemMunicipio <- base |> count(PacienteMunicipio)
+# a maior parte dos pacientes está no RJ
+
+##### Dados Faltantes
+# esta função explora todas as colunas do dataset e realiza uma soma dos valores n/a (valores que faltam)
+
+dados_ausentes <- skim(base) |> 
+  select(skim_variable, n_missing, complete_rate)
+
+
+# Para a tabela, exclui os municípios que não são do RJ.
+# filtragem da coluna PacienteEnderecoCoIbgeMunicipio por 33 (primeiros dois numeros)
+municipio_33 <- base |> filter (substr(PacienteEnderecoCoIbgeMunicipio, 1, 2) == "33")
+
+########### Análise exploratória dos dados ###########
+theme_gtsummary_compact()
+municipio_33 |>
+  dplyr::select(VacinaDescricaoDose, PacienteIdade, 
+                PacienteEnderecoCoIbgeMunicipio, PacienteSexoBiologico, VacinaFabricanteNome) |> 
+  tbl_summary(by = PacienteSexoBiologico,
+              statistic = all_categorical() ~ "{n} ({p}%)",
+              missing = "always",
+              missing_text = "Em Branco") |> 
+  add_overall() |>
+  modify_header(label ~ "**Sexo**")
+
+# help(add_overall)
+# help(tbl_summary)
+
+
